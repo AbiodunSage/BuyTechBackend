@@ -40,9 +40,9 @@ def signup():
     password = data.get('password')
 
     user_data = {
-        "name": data.get("name"),
-        "email":data.get("price")
-        
+        "name": name,
+        "email":email,
+        "cart":{}        
     }
 
     if not name or not email or not password:
@@ -51,7 +51,8 @@ def signup():
     try:
         user = auth.create_user_with_email_and_password(email,password)
 
-        key = ref.child(name).set(user_data)
+        user_id = user['localId']
+        ref.child(user_id).set(user_data)
         return jsonify({"message":"Succesfully created user"}),201
 
         
@@ -116,15 +117,18 @@ def Product(product_key):
 
 
 
-@app.route("/AddtoCart/<product_key>", methods=['POST'])
-def AddtoCart(product_key):
-    try:
-        data = request.get_json()
-        user_id = data.get(user_id)
+@app.route("/cart/add", methods=['POST'])
+def AddtoCart():
+    data = request.get_json()
 
-        if not user_id:
-            return jsonify({"Error":"User ID is required"})
-        
+    user_id = data.get('user_id')
+    product_key = data.get('product_key')
+
+
+    if not user_id or not product_key :
+        return jsonify({"Error":"User ID is required"})
+
+    try:
         product_ref = db.child('products').child(product_key).get()
         product_data = product_ref.val()
 
@@ -138,6 +142,44 @@ def AddtoCart(product_key):
             
     except Exception as e:
         return jsonify({"Error":"Error occurred","details": str(e)})
+
+@app.route("/cart/delete", methods = ['DELETE'])
+def delete_from_cart():
+    data = request.get_json()
+
+    user_id = data.get('user_id')
+    product_key = data.get('product_key')
+
+    if not user_id or not product_key:
+        return jsonify({"error":"User Id and Product key are required"})
+    try:
+        cart_ref = db.child("user").child(user_id).child('cart').child(product_key)
+        
+        if cart_ref.get().val():
+            cart_ref.remove()
+            return jsonify({"message":"Product removed succesfully from cart"})
+        else:
+            return jsonify ({"error":"product not found in cart"})
+    except Exception as e:
+        return jsonify({"error":"An Error occurred","detaiils":str(e)})
+    
+@app.route("/cart/view", methods = ['GET'])
+def view_cart():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({"error":"User ID is required"})
+    try:
+        cart_ref = db.child('users').child(user_id).child('cart')
+
+        cart_items = cart_ref.get().val()
+        if cart_items:
+            return jsonify({"cart":cart_items})
+        else:
+            return jsonify({"message":"Cart is empty"})
+    except Exception as e:
+        return jsonify({"error":"An error occured","details": str(e)})
     
  
 
